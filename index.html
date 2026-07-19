@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Badge Issuance — ID Card Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#12213B;
+    --steel:#2A4374;
+    --paper:#F3F5F8;
+    --card:#FFFFFF;
+    --brass:#D6A84D;
+    --brass-deep:#B5872E;
+    --verify:#2FBF8F;
+    --line:#DCE1EC;
+    --muted:#5B6B8C;
+    --text:#12213B;
+    --radius:14px;
+    --shadow: 0 18px 40px -18px rgba(18,33,59,0.35);
+  }
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    background:linear-gradient(120deg, var(--ink) 0%, var(--steel) 100%);
+    color:#fff;
+    padding:22px 5vw;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:3px solid var(--brass);
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand-mark{
+    width:34px;height:34px;
+    border:2px solid var(--brass);
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    color:var(--brass);
+    flex-shrink:0;
+  }
+  .brand-text .name{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:0.01em;
+    line-height:1.1;
+  }
+  .brand-text .tag{
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:rgba(255,255,255,0.65);
+    text-transform:uppercase;
+    margin-top:2px;
+  }
+  .steps-indicator{
+    display:flex;
+    gap:28px;
+  }
+  .step-pill{
+    display:flex;align-items:center;gap:8px;
+    font-size:12px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.45);
+  }
+  .step-pill .num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    width:20px;height:20px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.35);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step-pill.active{color:#fff;}
+  .step-pill.active .num{
+    background:var(--brass);
+    border-color:var(--brass);
+    color:var(--ink);
+    font-weight:600;
+  }
+  .step-pill.done .num{
+    background:var(--verify);
+    border-color:var(--verify);
+    color:#fff;
+  }
+
+  /* ---------- Layout ---------- */
+  .stage{
+    max-width:1180px;
+    margin:0 auto;
+    padding:44px 5vw 90px;
+  }
+  .screen{display:none;}
+  .screen.active{display:block; animation:fadeUp .35s ease;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  h1.screen-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:clamp(24px,3vw,32px);
+    font-weight:700;
+    margin:0 0 28px;
+    color:var(--ink);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1.15fr 0.85fr;
+    gap:24px;
+    align-items:start;
+  }
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:26px 28px;
+    box-shadow:var(--shadow);
+  }
+  .panel-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    margin:0 0 18px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel-title .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--brass);
+  }
+
+  label{
+    display:block;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .field{margin-bottom:16px;}
+  input[type="text"], select{
+    width:100%;
+    padding:11px 13px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    background:#fff;
+    color:var(--text);
+    transition:border-color .15s;
+  }
+  input[type="text"]:focus, select:focus{
+    outline:none;
+    border-color:var(--brass);
+    box-shadow:0 0 0 3px rgba(214,168,77,0.18);
+  }
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:520px){ .field-row{grid-template-columns:1fr;} }
+
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    border:none;
+    border-radius:10px;
+    padding:12px 20px;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease;
+  }
+  button:active{transform:scale(0.98);}
+  .btn-primary{
+    background:var(--ink);
+    color:#fff;
+  }
+  .btn-primary:hover{background:var(--steel);}
+  .btn-primary:disabled{background:#B9C1D6; cursor:not-allowed;}
+  .btn-brass{
+    background:var(--brass);
+    color:var(--ink);
+  }
+  .btn-brass:hover{background:var(--brass-deep); color:#fff;}
+  .btn-ghost{
+    background:transparent;
+    color:var(--steel);
+    border:1.5px solid var(--line);
+  }
+  .btn-ghost:hover{border-color:var(--steel);}
+  .btn-row{display:flex; gap:12px; margin-top:22px; flex-wrap:wrap;}
+
+  /* ---------- Camera ---------- */
+  .camera-frame{
+    background:var(--ink);
+    border-radius:12px;
+    aspect-ratio:4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+    margin-bottom:14px;
+  }
+  .camera-frame video, .camera-frame canvas, .camera-frame img{
+    width:100%; height:100%; object-fit:cover;
+  }
+  .camera-placeholder{
+    color:rgba(255,255,255,0.45);
+    font-size:13px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .camera-hint{
+    font-size:12px;
+    color:var(--muted);
+    margin:0 0 14px;
+  }
+  .cam-btn-row{display:flex; gap:10px; flex-wrap:wrap;}
+
+  /* ---------- Mini live preview (step 1) ---------- */
+  .mini-preview-wrap{
+    display:flex; flex-direction:column; align-items:center;
+    padding-top:6px;
+  }
+  #miniCanvas{
+    width:100%;
+    max-width:280px;
+    border-radius:10px;
+    box-shadow:0 10px 24px -12px rgba(18,33,59,0.4);
+  }
+  .mini-caption{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:10px;
+    text-align:center;
+  }
+
+  /* ---------- Badge canvas (step 2) ---------- */
+  .badge-stage{
+    display:flex;
+    justify-content:center;
+    padding:10px 0 6px;
+  }
+  #badgeCanvas{
+    width:100%;
+    max-width:520px;
+    border-radius:16px;
+    box-shadow:0 30px 60px -24px rgba(18,33,59,0.45);
+    transform:rotate(-0.6deg);
+    cursor:zoom-in;
+  }
+  .badge-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:20px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .badge-meta .mono{color:var(--ink);}
+
+  .side-note{
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.55;
+    margin:0 0 18px;
+  }
+  .payload-box{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+    font-size:11.5px;
+    line-height:1.6;
+    color:var(--steel);
+    word-break:break-all;
+    margin-bottom:18px;
+  }
+
+  /* ---------- Modal (QR zoom) ---------- */
+  .modal-overlay{
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(18,33,59,0.55);
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-box{
+    background:#fff;
+    border-radius:16px;
+    padding:26px;
+    text-align:center;
+    max-width:340px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.4);
+  }
+  .modal-box canvas, .modal-box img{width:220px; height:220px; border-radius:8px;}
+  .modal-box p{font-size:12px; color:var(--muted); margin:14px 0 18px;}
+
+  .footer-note{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:50px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark">ID</div>
+    <div class="brand-text">
+      <div class="name">Badge Issuance</div>
+      <div class="tag">ID Card Generator</div>
+    </div>
+  </div>
+  <div class="steps-indicator">
+    <div class="step-pill active" id="pillStep1"><span class="num">01</span> Details &amp; Capture</div>
+    <div class="step-pill" id="pillStep2"><span class="num">02</span> Preview &amp; Issue</div>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- ================= STEP 1 ================= -->
+  <div class="screen active" id="screen1">
+    <div class="eyebrow">Step 01</div>
+    <h1 class="screen-title">Cardholder details &amp; photo capture</h1>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> Cardholder Information</div>
+
+        <div class="field">
+          <label for="company">Company name</label>
+          <input type="text" id="company" placeholder="Acme Corporation" />
+        </div>
+        <div class="field">
+          <label for="fullname">Full name</label>
+          <input type="text" id="fullname" placeholder="Jordan Rivera" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="gender">Gender</label>
+            <select id="gender">
+              <option>Female</option>
+              <option>Male</option>
+              <option>Other</option>
+              <option>Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="phone">Phone number</label>
+            <input type="text" id="phone" placeholder="+1 555 010 2231" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="address">Address</label>
+          <input type="text" id="address" placeholder="221B Baker Street" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="toStep2Btn">Continue to Preview →</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-title"><span class="dot"></span> Photo Capture</div>
+          <p class="camera-hint">Center your face in frame, then capture. Nothing is uploaded — the photo stays in your browser.</p>
+          <div class="camera-frame" id="cameraFrame">
+            <div class="camera-placeholder">Camera off</div>
+          </div>
+          <div class="cam-btn-row">
+            <button class="btn-brass" id="startCamBtn">Start Camera</button>
+            <button class="btn-primary" id="captureBtn" disabled>Capture</button>
+            <button class="btn-ghost" id="retakeBtn" disabled>Retake</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><span class="dot"></span> Live Preview</div>
+          <div class="mini-preview-wrap">
+            <canvas id="miniCanvas" width="500" height="310"></canvas>
+            <div class="mini-caption">Updates as you type</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STEP 2 ================= -->
+  <div class="screen" id="screen2">
+    <div class="eyebrow">Step 02</div>
+    <h1 class="screen-title">Preview &amp; issue the badge</h1>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> Badge Preview</div>
+        <div class="badge-stage">
+          <canvas id="badgeCanvas" width="1000" height="620"></canvas>
+        </div>
+        <div class="badge-meta">
+          <span>Click the badge to view the QR full-size</span>
+          <span class="mono" id="idNoDisplay">ID —</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span class="dot"></span> What's encoded</div>
+        <p class="side-note">The QR payload carries every field below at high error correction, so it still scans if the badge is creased, laminated, or printed small.</p>
+        <div class="payload-box mono" id="payloadDisplay">—</div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn-primary" id="downloadBtn">Download PNG</button>
+          <button class="btn-ghost" id="backBtn">← Back to edit</button>
+          <button class="btn-ghost" id="newBadgeBtn">New Badge</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Badge Issuance runs entirely in your browser — no photo or detail leaves this page.</div>
+</div>
+
+<!-- Hidden QR render target -->
+<div id="qrHidden" style="position:absolute; left:-9999px; top:-9999px;"></div>
+
+<!-- QR zoom modal -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal-box">
+    <div id="qrZoomTarget"></div>
+    <p>Encodes: ID, company, name, gender, phone, issue date.</p>
+    <button class="btn-ghost" id="closeModalBtn">Close</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- Palette (kept in sync with CSS vars) ----------------
+  const PALETTE = {
+    ink: "#12213B",
+    steel: "#2A4374",
+    brass: "#D6A84D",
+    verify: "#2FBF8F",
+    muted: "#5B6B8C",
+    line: "#DCE1EC",
+    text: "#12213B"
+  };
+
+  // ---------------- State ----------------
+  let mediaStream = null;
+  let photoImage = null;      // HTMLImageElement of the captured (frozen) photo
+  let idNumber = null;
+  let qrImageEl = null;       // HTMLImageElement/canvas snapshot of the current QR
+
+  const els = {
+    company: document.getElementById('company'),
+    fullname: document.getElementById('fullname'),
+    gender: document.getElementById('gender'),
+    phone: document.getElementById('phone'),
+    address: document.getElementById('address'),
+
+    cameraFrame: document.getElementById('cameraFrame'),
+    startCamBtn: document.getElementById('startCamBtn'),
+    captureBtn: document.getElementById('captureBtn'),
+    retakeBtn: document.getElementById('retakeBtn'),
+
+    miniCanvas: document.getElementById('miniCanvas'),
+    badgeCanvas: document.getElementById('badgeCanvas'),
+
+    toStep2Btn: document.getElementById('toStep2Btn'),
+    backBtn: document.getElementById('backBtn'),
+    newBadgeBtn: document.getElementById('newBadgeBtn'),
+    downloadBtn: document.getElementById('downloadBtn'),
+
+    screen1: document.getElementById('screen1'),
+    screen2: document.getElementById('screen2'),
+    pillStep1: document.getElementById('pillStep1'),
+    pillStep2: document.getElementById('pillStep2'),
+
+    idNoDisplay: document.getElementById('idNoDisplay'),
+    payloadDisplay: document.getElementById('payloadDisplay'),
+
+    qrHidden: document.getElementById('qrHidden'),
+    qrModal: document.getElementById('qrModal'),
+    qrZoomTarget: document.getElementById('qrZoomTarget'),
+    closeModalBtn: document.getElementById('closeModalBtn'),
+  };
+
+  function collectData(){
+    return {
+      company: els.company.value.trim() || "Company Name",
+      name: els.fullname.value.trim() || "Full Name",
+      gender: els.gender.value,
+      phone: els.phone.value.trim(),
+      address: els.address.value.trim(),
+    };
+  }
+
+  function buildPayload(data, idNo){
+    return JSON.stringify({
+      id: idNo,
+      company: data.company,
+      name: data.name,
+      gender: data.gender,
+      phone: data.phone,
+      issued: new Date().toISOString().slice(0,10)
+    });
+  }
+
+  // ---------------- Camera (extended feature 1) ----------------
+  async function startCamera(){
+    try{
+      mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    }catch(err){
+      alert("Could not access the camera: " + err.message);
+      return;
+    }
+    els.cameraFrame.innerHTML = "";
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.playsInline = true;
+    video.srcObject = mediaStream;
+    video.style.transform = "scaleX(-1)"; // mirror, like the desktop version's cv2.flip
+    els.cameraFrame.appendChild(video);
+    els.startCamBtn.disabled = true;
+    els.captureBtn.disabled = false;
+    els.retakeBtn.disabled = true;
+    els.cameraFrame._video = video;
+  }
+
+  function captureFrame(){
+    const video = els.cameraFrame._video;
+    if(!video) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if(!vw || !vh) return;
+
+    // center-crop, mirrored, matching the desktop app's crop behaviour
+    const cropCanvas = document.createElement('canvas');
+    const cropW = vw * 0.7, cropH = vh * 0.9;
+    cropCanvas.width = cropW;
+    cropCanvas.height = cropH;
+    const ctx = cropCanvas.getContext('2d');
+    ctx.translate(cropW, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, (vw - cropW)/2, (vh - cropH)/2, cropW, cropH, 0, 0, cropW, cropH);
+
+    const img = new Image();
+    img.onload = function(){
+      photoImage = img;
+      renderMiniPreview();
+    };
+    img.src = cropCanvas.toDataURL('image/jpeg', 0.92);
+
+    els.cameraFrame.innerHTML = "";
+    const frozen = document.createElement('img');
+    frozen.src = cropCanvas.toDataURL('image/jpeg', 0.92);
+    els.cameraFrame.appendChild(frozen);
+
+    stopStream();
+    els.captureBtn.disabled = true;
+    els.retakeBtn.disabled = false;
+  }
+
+  function stopStream(){
+    if(mediaStream){
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+  }
+
+  function retake(){
+    photoImage = null;
+    els.cameraFrame.innerHTML = '<div class="camera-placeholder">Camera off</div>';
+    els.startCamBtn.disabled = false;
+    els.captureBtn.disabled = true;
+    els.retakeBtn.disabled = true;
+    renderMiniPreview();
+  }
+
+  els.startCamBtn.addEventListener('click', startCamera);
+  els.captureBtn.addEventListener('click', captureFrame);
+  els.retakeBtn.addEventListener('click', retake);
+
+  // ---------------- QR generation ----------------
+  function generateQR(payloadText, size){
+    return new Promise(resolve => {
+      els.qrHidden.innerHTML = "";
+      new QRCode(els.qrHidden, {
+        text: payloadText,
+        width: size,
+        height: size,
+        colorDark: PALETTE.ink,
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      // qrcodejs renders async via a tiny internal timeout; poll briefly
+      const check = () => {
+        const canvas = els.qrHidden.querySelector('canvas');
+        const img = els.qrHidden.querySelector('img');
+        if(canvas && canvas.width > 0){
+          resolve(canvas);
+        }else if(img && img.complete){
+          resolve(img);
+        }else{
+          setTimeout(check, 30);
+        }
+      };
+      check();
+    });
+  }
+
+  // ---------------- Card drawing (extended feature 2) ----------------
+  function roundRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBadge(canvas, data, idNo, qrSource, scale){
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    scale = scale || 1;
+
+    ctx.clearRect(0,0,W,H);
+    // base
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0,0,W,H);
+
+    // gradient header
+    const headerH = 150*scale;
+    const grad = ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0, PALETTE.ink);
+    grad.addColorStop(1, PALETTE.steel);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,headerH);
+
+    // hole punch + lanyard notch (signature detail)
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.beginPath();
+    ctx.arc(W/2, 18*scale, 9*scale, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.brass;
+    ctx.fillRect(W/2 - 30*scale, 0, 60*scale, 6*scale);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "top";
+    ctx.font = `700 ${34*scale}px 'Space Grotesk', sans-serif`;
+    ctx.fillText(data.company, 40*scale, 40*scale);
+
+    ctx.font = `500 ${13*scale}px 'IBM Plex Mono', monospace`;
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText("OFFICIAL IDENTIFICATION CARD", 40*scale, 84*scale);
+
+    ctx.font = `600 ${18*scale}px 'IBM Plex Mono', monospace`;
+    ctx.fillStyle = "#ffffff";
+    const idText = "ID " + idNo;
+    const idW = ctx.measureText(idText).width;
+    ctx.fillText(idText, W - 40*scale - idW, 96*scale);
+
+    // photo
+    const photoSize = 190*scale;
+    const photoX = W - 40*scale - photoSize;
+    const photoY = headerH + 22*scale;
+    if(photoImage){
+      ctx.save();
+      roundRectPath(ctx, photoX, photoY, photoSize, photoSize, 16*scale);
+      ctx.clip();
+      // cover-fit
+      const ir = photoImage.width / photoImage.height;
+      const br = 1;
+      let dw, dh, dx, dy;
+      if(ir > br){ dh = photoSize; dw = dh*ir; dx = photoX-(dw-photoSize)/2; dy = photoY; }
+      else { dw = photoSize; dh = dw/ir; dx = photoX; dy = photoY-(dh-photoSize)/2; }
+      ctx.drawImage(photoImage, dx, dy, dw, dh);
+      ctx.restore();
+      ctx.strokeStyle = PALETTE.line;
+      ctx.lineWidth = 1.5*scale;
+      roundRectPath(ctx, photoX, photoY, photoSize, photoSize, 16*scale);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = PALETTE.muted;
+      ctx.lineWidth = 1.5*scale;
+      ctx.setLineDash([5*scale,4*scale]);
+      roundRectPath(ctx, photoX, photoY, photoSize, photoSize, 16*scale);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = PALETTE.muted;
+      ctx.font = `500 ${13*scale}px 'Inter', sans-serif`;
+      ctx.fillText("No photo", photoX + 55*scale, photoY + 90*scale);
+    }
+
+    // field grid
+    const fields = [
+      ["FULL NAME", data.name],
+      ["GENDER", data.gender],
+      ["PHONE", data.phone || "—"],
+      ["ADDRESS", data.address || "—"],
+    ];
+    let y = headerH + 26*scale;
+    fields.forEach(([label, value]) => {
+      ctx.fillStyle = PALETTE.muted;
+      ctx.font = `600 ${12*scale}px 'Inter', sans-serif`;
+      ctx.fillText(label, 40*scale, y);
+      ctx.fillStyle = PALETTE.text;
+      ctx.font = `500 ${19*scale}px 'Inter', sans-serif`;
+      ctx.fillText(value, 40*scale, y + 18*scale);
+      y += 68*scale;
+    });
+
+    // divider
+    const footerY = H - 108*scale;
+    ctx.strokeStyle = PALETTE.line;
+    ctx.lineWidth = 1*scale;
+    ctx.beginPath();
+    ctx.moveTo(40*scale, footerY);
+    ctx.lineTo(W - 40*scale, footerY);
+    ctx.stroke();
+
+    // QR
+    const qrSize = 82*scale;
+    if(qrSource){
+      ctx.drawImage(qrSource, 40*scale, footerY + 14*scale, qrSize, qrSize);
+    }
+
+    ctx.fillStyle = PALETTE.muted;
+    ctx.font = `600 ${11*scale}px 'Inter', sans-serif`;
+    ctx.fillText("ISSUED", 140*scale, footerY + 18*scale);
+    ctx.fillStyle = PALETTE.text;
+    ctx.font = `500 ${12.5*scale}px 'IBM Plex Mono', monospace`;
+    ctx.fillText(new Date().toDateString().slice(4), 140*scale, footerY + 34*scale);
+
+    ctx.fillStyle = PALETTE.muted;
+    ctx.font = `600 ${11*scale}px 'Inter', sans-serif`;
+    ctx.fillText("SCAN TO VERIFY", 140*scale, footerY + 60*scale);
+  }
+
+  // ---------------- Live mini preview (step 1) ----------------
+  let miniQrCache = null;
+  let miniQrCacheKey = "";
+  async function renderMiniPreview(){
+    const data = collectData();
+    const tempId = idNumber || 1000000;
+    const payload = buildPayload(data, tempId);
+    if(miniQrCacheKey !== payload){
+      miniQrCache = await generateQR(payload, 120);
+      miniQrCacheKey = payload;
+    }
+    drawBadge(els.miniCanvas, data, tempId, miniQrCache, 0.5);
+  }
+
+  [els.company, els.fullname, els.gender, els.phone, els.address].forEach(el => {
+    el.addEventListener('input', debounce(renderMiniPreview, 150));
+    el.addEventListener('change', renderMiniPreview);
+  });
+
+  function debounce(fn, ms){
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  // ---------------- Step navigation ----------------
+  async function goToStep2(){
+    const data = collectData();
+    if(!els.company.value.trim() || !els.fullname.value.trim()){
+      alert("Please fill in at least Company Name and Full Name.");
+      return;
+    }
+    if(!photoImage){
+      const proceed = confirm("You haven't captured a photo yet. Generate the badge without one?");
+      if(!proceed) return;
+    }
+    idNumber = 1000000 + Math.floor(Math.random() * 8000000);
+    const payload = buildPayload(data, idNumber);
+    const qrSource = await generateQR(payload, 260);
+
+    drawBadge(els.badgeCanvas, data, idNumber, qrSource, 1);
+    els.idNoDisplay.textContent = "ID " + idNumber;
+    els.payloadDisplay.textContent = payload;
+
+    els.screen1.classList.remove('active');
+    els.screen2.classList.add('active');
+    els.pillStep1.classList.remove('active'); els.pillStep1.classList.add('done');
+    els.pillStep2.classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function goToStep1(){
+    els.screen2.classList.remove('active');
+    els.screen1.classList.add('active');
+    els.pillStep2.classList.remove('active');
+    els.pillStep1.classList.add('active'); els.pillStep1.classList.remove('done');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function newBadge(){
+    els.company.value = ""; els.fullname.value = ""; els.phone.value = ""; els.address.value = "";
+    els.gender.selectedIndex = 0;
+    photoImage = null; idNumber = null;
+    els.cameraFrame.innerHTML = '<div class="camera-placeholder">Camera off</div>';
+    els.startCamBtn.disabled = false;
+    els.captureBtn.disabled = true;
+    els.retakeBtn.disabled = true;
+    renderMiniPreview();
+    goToStep1();
+  }
+
+  els.toStep2Btn.addEventListener('click', goToStep2);
+  els.backBtn.addEventListener('click', goToStep1);
+  els.newBadgeBtn.addEventListener('click', newBadge);
+
+  els.downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    const data = collectData();
+    link.download = (data.name || "id-card").replace(/\s+/g,'_') + ".png";
+    link.href = els.badgeCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // ---------------- QR zoom modal ----------------
+  els.badgeCanvas.addEventListener('click', async () => {
+    if(!idNumber) return;
+    const data = collectData();
+    const payload = buildPayload(data, idNumber);
+    els.qrZoomTarget.innerHTML = "";
+    new QRCode(els.qrZoomTarget, {
+      text: payload,
+      width: 220, height: 220,
+      colorDark: PALETTE.ink,
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    els.qrModal.classList.add('active');
+  });
+  els.closeModalBtn.addEventListener('click', () => els.qrModal.classList.remove('active'));
+  els.qrModal.addEventListener('click', (e) => { if(e.target === els.qrModal) els.qrModal.classList.remove('active'); });
+
+  // ---------------- Init ----------------
+  renderMiniPreview();
+})();
+</script>
+
+</body>
+</html>
